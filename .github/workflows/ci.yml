@@ -1,56 +1,42 @@
-<<<<<<< HEAD
-=======
-name: Deploy to EC2
+name: Deploy to Netlify
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Checkout Repository
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # Step 2: Login to DockerHub
-    - name: Login to DockerHub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
 
-    # Step 3: Pull Your Docker Image
-    - name: Pull Docker Image
-      run: docker pull harshinielamvaluthy/harshini-guvi:latest
+      - name: Install dependencies
+        run: npm ci
 
-    # Step 4: SSH into EC2 and Deploy
-    - name: SSH and Deploy
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: 22
-        script: |
-          echo "Stopping existing container..."
-          sudo docker stop harshini-guvi-app || true
-          
-          echo "Removing old container..."
-          sudo docker rm harshini-guvi-app || true
-          
-          echo "Pulling latest image..."
-          sudo docker pull harshinielamvaluthy/harshini-guvi:latest
-          
-          echo "Starting new container..."
-          sudo docker run -d \
-            -p 80:80 \
-            --restart always \
-            --name harshini-guvi-app \
-            harshinielamvaluthy/harshini-guvi:latest
-          
-          echo "Deployment completed successfully!"
->>>>>>> new-origin/main
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v2.1.0
+        with:
+          publish-dir: './out'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: 'Deploy from GitHub Actions'
+          enable-pull-request-comment: true
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 1
